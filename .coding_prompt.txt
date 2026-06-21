@@ -4,9 +4,7 @@ You are a senior full-stack engineer. Write ALL source code for this project.
 
 
 ## Files to Create
-- ```file:package.json
-- 'dev': 'ts-node src/main.ts',
-- '@types/express': '^4.17.0',
+(determine from SPEC)
 
 ## SPEC.md (read carefully)
 # SPEC.md — HIPAA-Compliant Patient Portal
