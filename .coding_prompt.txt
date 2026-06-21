@@ -4,7 +4,11 @@ You are a senior full-stack engineer. Write ALL source code for this project.
 
 
 ## Files to Create
-(determine from SPEC)
+- package.json
+- tsconfig.json
+- docker-compose.yml
+- | `.gitignore` | Git ignore patterns for Node.js/TypeScript development |
+- .gitignore
 
 ## SPEC.md (read carefully)
 # SPEC.md — HIPAA-Compliant Patient Portal
@@ -153,12 +157,6 @@ You are a senior full-stack engineer. Write ALL source code for this project.
 5. Include Docker support (Dockerfile, docker-compose.yml)
 6. Include README with "Business Problem Solved" as FIRST section after title
 7. All code must compile/be syntactically valid
-8. Output as file blocks: ```file:path
-content
-```
-
-Write every file completely. No stubs. No TODOs.
-ntactically valid
 8. Output as file blocks: ```file:path
 content
 ```
