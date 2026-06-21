@@ -4,11 +4,7 @@ You are a senior full-stack engineer. Write ALL source code for this project.
 
 
 ## Files to Create
-- package.json
-- tsconfig.json
-- docker-compose.yml
-- | `.gitignore` | Git ignore patterns for Node.js/TypeScript development |
-- .gitignore
+(determine from SPEC)
 
 ## SPEC.md (read carefully)
 # SPEC.md — HIPAA-Compliant Patient Portal
