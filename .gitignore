@@ -1,0 +1,12 @@
+
+# Worker-internal files — NEVER push to GitHub
+PROPOSAL.md
+COVER_LETTER.txt
+SPEC.txt
+TASK.txt
+pid
+role
+.planning/
+*.pyc
+__pycache__/
+.DS_Store
