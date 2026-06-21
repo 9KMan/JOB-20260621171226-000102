@@ -1,0 +1,70 @@
+{
+  "source": "upwork",
+  "lead_url": "https://www.upwork.com/jobs/~022068729599304359969",
+  "title": "Full Stack Developer for HIPAA-Compliant Patient Portal",
+  "client": "Upwork \u2014 HIPAA Patient Portal",
+  "budget": "$30-75/hr",
+  "duration": "3 to 6 months",
+  "hours": "<30 hrs/week",
+  "tier": "expert",
+  "state": "APPROVED",
+  "tech_stack": [
+    "Node.js",
+    "React",
+    "Amazon Web Services",
+    "API Integration",
+    "PostgreSQL",
+    "TypeScript",
+    "HIPAA",
+    "Healthcare"
+  ],
+  "skills": [
+    "Node.js",
+    "React",
+    "Amazon Web Services",
+    "API Integration",
+    "PostgreSQL",
+    "JavaScript",
+    "TypeScript",
+    "HIPAA",
+    "Healthcare"
+  ],
+  "description": "Full Stack Developer for HIPAA-Compliant Patient Portal. Patient-facing portal for outpatient clinics: appointment scheduling, secure messaging, EHR integration (athenahealth, FHIR R4). Node.js + PostgreSQL on AWS. NDA + BAA required. Key deliverables: (1) Secure patient portal \u2014 login, scheduling, provider messaging. (2) EHR data sync via athenahealth FHIR R4. (3) AWS infrastructure (RDS, Lambda, S3, IAM). (4) Audit trail + access control layer for PHI/HIPAA compliance.",
+  "proposal_requirements": [
+    "1. Describe a HIPAA-compliant system you've built \u2014 what data did it handle and how did you implement PHI protection?",
+    "2. FHIR R4 / EHR API integration experience (athenahealth, Epic, DrChrono) \u2014 what specifically did you build?",
+    "3. How do you handle audit logging in a multi-user healthcare application?"
+  ],
+  "cover_letter_starts_with": "Portal",
+  "priority": 1,
+  "job_id": "JOB-20260621171226-000102",
+  "created_at": "2026-06-21T17:12:26.502319+00:00",
+  "cto_approved": true,
+  "_version": 13,
+  "history": [
+    {
+      "ts": "2026-06-21T19:12:32.034066",
+      "from": "INTAKE",
+      "to": "REVIEW",
+      "actor": "batch-qualify",
+      "note": "auto-qualify from INTAKE"
+    }
+  ],
+  "updated_at": "2026-06-21T19:12:32.034066",
+  "assigned_at": null,
+  "assignee": null,
+  "retry_count": 0,
+  "build_issue_id": null,
+  "confidence": 0.0,
+  "tags": [],
+  "full_description": "Full Stack Developer for HIPAA-Compliant Patient Portal. Patient-facing portal for outpatient clinics: appointment scheduling, secure messaging, EHR integration (athenahealth, FHIR R4). Node.js + PostgreSQL on AWS. NDA + BAA required. Key deliverables: (1) Secure patient portal \u2014 login, scheduling, provider messaging. (2) EHR data sync via athenahealth FHIR R4. (3) AWS infrastructure (RDS, Lambda, S3, IAM). (4) Audit trail + access control layer for PHI/HIPAA compliance.",
+  "github_url": "https://github.com/9KMan/JOB-20260621171226-000102",
+  "ceo_verdict": {
+    "verdict": "a",
+    "label": "APPROVED",
+    "confidence": "high",
+    "stored_at": "2026-06-21T17:37:00.911023+00:00"
+  },
+  "ceo_review_issue_id": "762e680f-13c3-4ea9-b5cf-8ac04e7db178",
+  "ceo_review_issue_number": 757
+}
