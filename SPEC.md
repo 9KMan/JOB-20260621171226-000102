@@ -1,297 +1,85 @@
-# SPEC.md — HIPAA-Compliant Patient Portal
+# Specification: Full Stack Developer for HIPAA-Compliant Patient Portal. Patient-facing portal for outpatient clinics: appointment scheduling, secure messaging, EHR integration (athenahealth, FHIR R4). Node.js + PostgreSQL on AWS. NDA + BAA required. Key deliverables: (1) Secure patient portal — login, scheduling, provider messaging. (2) EHR data sync via athenahealth FHIR R4. (3) AWS infrastructure (RDS, Lambda, S3, IAM). (4) Audit trail + access control layer for PHI/HIPAA compliance.
 
 ## 1. Project Overview
 
-**Project Name:** MedPortal — HIPAA-Compliant Patient Portal
-**Type:** Healthcare SaaS Web Application (B2B2C)
-**Core Functionality:** Patient-facing portal for a network of outpatient clinics enabling appointment scheduling, secure provider messaging, and EHR integration with athenahealth via FHIR R4.
-**Target Users:** Patients, Healthcare Providers (physicians, nurses, office staff), Clinic Administrators
-**HIPAA Classification:** PHI — all data at rest and in transit must be encrypted; full audit logging required.
-
----
+**Project:** Full Stack Developer for HIPAA-Compliant Patient Portal. Patient-facing portal for outpatient clinics: appointment scheduling, secure messaging, EHR integration (athenahealth, FHIR R4). Node.js + PostgreSQL on AWS. NDA + BAA required. Key deliverables: (1) Secure patient portal — login, scheduling, provider messaging. (2) EHR data sync via athenahealth FHIR R4. (3) AWS infrastructure (RDS, Lambda, S3, IAM). (4) Audit trail + access control layer for PHI/HIPAA compliance.
+**GitHub Repo:** https://github.com/9KMan/JOB-20260621171226-000102
+**Lead:** https://www.upwork.com/jobs/~022068729599304359969
+**Client:** Upwork — HIPAA Patient Portal
+**Tier:** expert
+**Budget:** $30-75/hr
+**Rate:** N/A
+**Timeline:** 4-8 weeks
 
 ## 2. Technical Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| Backend API | Node.js 20 + Express.js (or Fastify) |
-| Database | PostgreSQL 15 on AWS RDS (db.t3.medium minimum) |
-| ORM | Prisma (TypeScript-first, migrations) |
-| Auth | JWT (RS256) + MFA via TOTP (otplib) |
-| File Storage | AWS S3 (encrypted buckets, SSE-KMS) |
-| Serverless | AWS Lambda (scheduled jobs, notifications) |
-| CDN/Proxy | AWS CloudFront + API Gateway |
-| Monitoring | AWS CloudWatch + Sentry |
-| Infrastructure | Terraform (IaC) |
-| EHR Integration | athenahealth FHIR R4 API |
-| Audit | Custom audit log table + CloudTrail |
+Node.js · React · Amazon Web Services · API Integration · PostgreSQL · TypeScript · HIPAA · Healthcare
 
----
+## 3. Architecture
 
-## 3. Functionality Specification
+- Backend: Node.js/TypeScript REST API
+- Database: PostgreSQL with proper indexing
+- Cloud: AWS (EC2, S3, Lambda, CloudFront)
+- Frontend: React.js SPA with component architecture
+- Serverless: AWS Lambda / Vercel / Cloudflare Functions
 
-### 3.1 Authentication & Access Control
+### API Design
+- RESTful endpoints with JSON request/response
+- Authentication via JWT (HS256) or bcrypt
+- Middleware for logging, error handling, CORS
+- Versioned routes (/api/v1/...) where applicable
 
-- **Patient registration:** Email + phone verification, identity verification step
-- **Provider login:** SSO via clinic identity provider (SAML 2.0 stub)
-- **MFA:** TOTP (Google Authenticator / Authy) required for all roles
-- **Session management:** JWT access token (15min) + rotating refresh token (7 days)
-- **Password policy:** min 12 chars, complexity requirements, breach detection (HaveIBeenPwned API)
-- **Role-based access control (RBAC):**
-  - `PATIENT` — own records only
-  - `PROVIDER` — assigned patient records
-  - `ADMIN` — clinic-wide data, user management
-  - `SYSTEM` — EHR sync service account
+### Data Layer
+- PostgreSQL as primary datastore
+- Connection pooling via PGBouncer or similar
+- Migration management via Alembic or raw SQL
+- Indexes on foreign keys and high-cardinality columns
 
-### 3.2 Patient Portal — Core Features
+### Frontend (if applicable)
+- Single-page application or server-rendered pages
+- Responsive UI with modern CSS/JS framework
+- State management for complex client-side logic
 
-**Dashboard:**
-- Upcoming appointments list
-- Unread messages badge
-- Recent lab results (if available via FHIR)
-- Action items (required forms, unsigned documents)
+## 4. Data Model
 
-**Appointment Scheduling:**
-- View available slots by provider and date range
-- Book / reschedule / cancel appointments
-- Appointment reminders via email + SMS (AWS SNS)
-- Waitlist for fully-booked slots
-- Recurring appointment series (weekly, monthly)
+### Core Entities
+- Define entity schema based on job requirements
+- Use UUIDs for primary keys (not auto-increment)
+- Add created_at / updated_at timestamps to all tables
+- Soft-delete pattern where appropriate
 
-**Secure Messaging:**
-- Patient ↔ Provider async messaging
-- End-to-end encryption at rest (AES-256-GCM)
-- PII auto-redaction before storage (regex + named entity detection)
-- Attachment support (PDF, images) — virus scanned before storage
-- Message read receipts
-- Thread-based conversations
+### Relationships
+- Foreign key constraints with ON DELETE CASCADE
+- Many-to-many via junction tables
+- Eager loading for nested relationships in API
 
-**Health Records (Read-only from EHR):**
-- Problem list (FHIR Condition)
-- Medication list (FHIR MedicationRequest)
-- Allergies (FHIR AllergyIntolerance)
-- Immunizations (FHIR Immunization)
-- Lab results (FHIR Observation)
-- Download records as PDF or FHIR bundle
-
-### 3.3 Provider Portal
-
-- Patient list with search and filter
-- View patient's full record (FHIR data)
-- Send secure messages to patient
-- Manage appointment availability slots
-- View audit log for their patient panel
-
-### 3.4 EHR Integration — athenahealth FHIR R4
-
-**Scope:**
-- Patient demographics sync (FHIR Patient)
-- Appointment sync (FHIR Appointment)
-- Clinical data: conditions, medications, allergies, observations (FHIR resources)
-- Webhook receiver for real-time updates from athenahealth
-
-**FHIR R4 Resources to implement:**
-- `Patient` — demographics
-- `Practitioner` — provider data
-- `Appointment` — scheduling
-- `Condition` — problem list
-- `MedicationRequest` — prescriptions
-- `AllergyIntolerance` — allergies
-- `Observation` — lab results, vitals
-- `Encounter` — visit history
-
-**Authentication:** OAuth 2.0 with athenahealth's authorization server (client credentials grant for system-to-system sync).
-
-### 3.5 AWS Infrastructure
-
-**RDS PostgreSQL:**
-- Multi-AZ deployment (production)
-- Automated backups (30-day retention)
-- Encryption at rest (AWS KMS)
-- `db.t3.medium` dev, `db.r6g.large` production
-- Connection pooling: PgBouncer (transaction mode)
-- Private subnet only — no public access
-
-**S3:**
-- `medportal-documents-<env>` — patient documents, encrypted (SSE-KMS)
-- `medportal-audit-logs-<env>` — audit log exports, Glacier storage class
-- Bucket policies: deny non-HTTPS, deny unless from specific VPC endpoint
-- Versioning enabled, lifecycle policies
-
-**IAM:**
-- Least-privilege roles per service
-- No long-lived access keys — use IAM roles + web identity federation
-- Lambda execution role with scoped permissions
-
-**VPC:**
-- 3-tier: public (CloudFront), private (Lambda, ALB), data (RDS, ElastiCache)
-- VPC endpoints for S3, Secrets Manager, SNS, SQS
-- No direct SSH/RDP to any instance
-
-**Lambda:**
-- `process-ehr-webhook` — receives and processes athenahealth events
-- `send-notification` — email/SMS dispatch
-- `audit-log-flush` — batches audit writes to S3 for long-term retention
-
-### 3.6 Audit Logging & HIPAA Compliance
-
-**Audit Log Table (`audit_log`):**
-Every PHI access must log:
-- `actor_id` (user ID or SYSTEM)
-- `actor_role`
-- `action` (CREATE, READ, UPDATE, DELETE, EXPORT, LOGIN, LOGOUT)
-- `resource_type` (Patient, Appointment, Message, etc.)
-- `resource_id`
-- `ip_address`
-- `user_agent`
-- `timestamp` (UTC)
-- `success` (boolean)
-- `details` (JSON — query params, changed fields, etc.)
-
-**Additional requirements:**
-- CloudTrail enabled on all AWS accounts (management + data events)
-- Database audit: PostgreSQL `pgaudit` extension logging all DDL and DML
-- Immutable audit log: audit entries written to S3 Glacier immediately after (WORM storage)
-- Log retention: 6 years minimum (HIPAA requirement)
-- Breach notification: automated alerting if audit log gaps detected
-
----
-
-## 4. API Endpoints
-
-### Authentication
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/auth/register` | Patient self-registration |
-| POST | `/api/v1/auth/login` | Login (returns JWT) |
-| POST | `/api/v1/auth/refresh` | Refresh access token |
-| POST | `/api/v1/auth/mfa/setup` | Generate TOTP secret |
-| POST | `/api/v1/auth/mfa/verify` | Verify TOTP code |
-| POST | `/api/v1/auth/logout` | Invalidate refresh token |
-
-### Patients
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/patients/me` | Current patient profile |
-| PUT | `/api/v1/patients/me` | Update profile |
-| GET | `/api/v1/patients/me/conditions` | FHIR Condition list |
-| GET | `/api/v1/patients/me/medications` | FHIR MedicationRequest list |
-| GET | `/api/v1/patients/me/allergies` | FHIR AllergyIntolerance list |
-| GET | `/api/v1/patients/me/observations` | FHIR Observation (labs/vitals) |
-
-### Appointments
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/appointments/slots` | Available slots (query: provider_id, date_range) |
-| POST | `/api/v1/appointments` | Book appointment |
-| GET | `/api/v1/appointments` | List patient's appointments |
-| PUT | `/api/v1/appointments/:id` | Reschedule |
-| DELETE | `/api/v1/appointments/:id` | Cancel |
-
-### Messaging
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/messages/threads` | List message threads |
-| POST | `/api/v1/messages/threads` | Start new thread |
-| GET | `/api/v1/messages/threads/:id` | Get thread messages |
-| POST | `/api/v1/messages/threads/:id/messages` | Send message |
-
-### EHR Sync (System)
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/v1/ehr/webhook` | athenahealth webhook receiver |
-| POST | `/api/v1/ehr/sync/patients` | Manual patient sync trigger |
-| POST | `/api/v1/ehr/sync/appointments` | Manual appointment sync |
-
-### Admin
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/admin/users` | List users |
-| POST | `/api/v1/admin/users` | Create user |
-| GET | `/api/v1/admin/audit-log` | Query audit log (admin only) |
-| GET | `/api/v1/admin/audit-log/export` | Export audit log to S3 |
-
----
-
-## 5. Database Schema (Core Tables)
+## 5. Project Structure
 
 ```
-users               — id, email, password_hash, role, mfa_secret, created_at
-patients            — id, user_id (FK), first_name, last_name, dob, phone, athena_id
-providers           — id, user_id (FK), first_name, last_name, specialty, athena_id
-appointments        — id, patient_id (FK), provider_id (FK), start_at, end_at, status, athena_id
-appointment_slots    — id, provider_id (FK), start_at, end_at, is_available
-message_threads      — id, patient_id (FK), provider_id (FK), subject, created_at
-messages            — id, thread_id (FK), sender_id (FK), encrypted_content, attachment_keys, sent_at
-audit_log           — id, actor_id, actor_role, action, resource_type, resource_id, ip_address, user_agent, timestamp, success, details (JSONB)
-ehr_sync_state      — id, resource_type, last_sync_at, athena_modified_since
+├── api/                  # FastAPI / Express routes + schemas
+├── models/               # DB models / SQLAlchemy / Prisma
+├── services/             # Business logic layer
+├── workers/              # Background jobs (Celery, BullMQ, etc.)
+├── migrations/           # DB migrations (Alembic / Flyway)
+├── tests/                # Unit + integration tests
+├── Dockerfile            # Production container
+├── docker-compose.yml    # Local dev environment
+└── README.md             # Setup instructions
 ```
-
----
 
 ## 6. Out of Scope
 
-- Insurance eligibility verification
-- Billing / claims processing
-- Telehealth video visits
-- Prescription refills (read-only medication list, no e-prescribing)
-- Mobile apps (web only)
-- Third-party SSO (beyond SAML stub)
-
----
+- Mobile apps (web only unless explicitly specified)
+- Multi-tenant / white-label customization
+- Performance optimization at 1M+ user scale
 
 ## 7. Acceptance Criteria
 
-1. All API endpoints require valid JWT; expired tokens return 401
-2. MFA enforced before any PHI access
-3. Every API call that reads/writes PHI creates an audit_log entry
-4. Database credentials stored in AWS Secrets Manager, never in code or env files
-5. S3 buckets deny non-HTTPS requests
-6. athenahealth webhook correctly processes `Appointment` and `Patient` events
-7. Patient cannot see another patient's data (enforced at ORM query level)
-8. Audit log is append-only; no UPDATE or DELETE operations permitted on audit_log table
-9. All PHI encrypted at rest (database level for columns, S3 SSE-KMS for files)
-10. Infrastructure reproducible from Terraform (no manual AWS console changes)
+- [ ] REST API with all planned endpoints implemented and returning JSON
+- [ ] Database schema created with migrations applied
+- [ ] Authentication system (login/logout/JWT or OAuth)
+- [ ] Frontend UI implemented, responsive, and functional
+- [ ] AI/ML pipeline integrated and functional
+- [ ] AWS services configured per architecture
 
----
-
-## 10. Files to Create
-
-Total: ~25 source files across 7 phases.
-
-| Phase | File | Description |
-|---|---|---|
-| **2** | `package.json` | Node.js 20 + TypeScript + Express + Prisma + AWS SDK + otplib |
-| **2** | `tsconfig.json` | TypeScript config targeting Node 20 |
-| **2** | `.env.example` | All required env vars (DB URL, JWT keys, AWS creds, athenahealth) |
-| **2** | `Dockerfile` | Multi-stage Node 20 Alpine production build |
-| **2** | `docker-compose.yml` | PostgreSQL + app + MinIO (local S3) |
-| **2** | `.gitignore` | Node modules, .env, dist/, .terraform/ |
-| **3** | `src/index.ts` | Entry point, port binding |
-| **3** | `src/app.ts` | Express app with middleware chain |
-| **3** | `src/config/index.ts` | Env config loader with validation |
-| **3** | `src/config/database.ts` | Prisma client singleton |
-| **3** | `src/routes/health.ts` | Health check + readiness endpoints |
-| **4** | `prisma/schema.prisma` | All models: User, Patient, Provider, Appointment, Message, AuditLog, FHIRMapping |
-| **4** | `prisma/migrations/001_initial_schema.sql` | Initial migration |
-| **5** | `src/auth/jwt.ts` | RS256 JWT with key loading, access + refresh tokens |
-| **5** | `src/auth/mfa.ts` | TOTP MFA with otplib + QR code generation |
-| **5** | `src/auth/rbac.ts` | Role-based middleware (PATIENT, PROVIDER, ADMIN, SYSTEM) |
-| **5** | `src/routes/auth.ts` | /auth/register, /auth/login, /auth/mfa-verify, /auth/refresh |
-| **5** | `src/routes/patients.ts` | Patient CRUD with row-level security |
-| **5** | `src/routes/appointments.ts` | Appointment booking, reschedule, cancel |
-| **5** | `src/routes/messages.ts` | Secure thread-based messaging |
-| **5** | `src/middleware/audit.ts` | HIPAA audit logger (every PHI access) |
-| **5** | `src/middleware/errorHandler.ts` | Centralized error handler |
-| **6** | `src/audit/logger.ts` | Structured audit log (DB + S3 Glacier sink) |
-| **6** | `src/encryption/phi.ts` | AES-256-GCM column-level encryption helpers |
-| **6** | `terraform/main.tf` | AWS: VPC, RDS, S3, Lambda, IAM roles |
-| **6** | `terraform/variables.tf` | Terraform variables |
-| **6** | `terraform/outputs.tf` | Terraform outputs |
-| **7** | `src/integration/athenahealth/fhir.ts` | FHIR R4 client (Patient, Appointment, Condition, MedicationRequest, Observation) |
-| **7** | `src/integration/athenahealth/webhook.ts` | Webhook receiver with idempotency |
-| **7** | `src/integration/s3.ts` | S3 presigned URLs + virus scan trigger |
-| **7** | `src/workers/notification.ts` | AWS SES/SNS for email + SMS reminders |
-| **7** | `.env.terraform.example` | Terraform env vars template |
-| **7** | `terraform/terraform.tfvars.example` | Terraform tfvars template |
+**GitHub Repo:** https://github.com/9KMan/JOB-20260621171226-000102

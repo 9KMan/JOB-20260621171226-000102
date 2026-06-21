@@ -1,11 +1,14 @@
-
-# Worker-internal files — NEVER push to GitHub
-PROPOSAL.md
-COVER_LETTER.txt
-SPEC.txt
-TASK.txt
-pid
-role
-*.pyc
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
 __pycache__/
 .DS_Store
+.idea/
+.vscode/
+.terraform/
+*.tfstate
+*.tfstate.*
