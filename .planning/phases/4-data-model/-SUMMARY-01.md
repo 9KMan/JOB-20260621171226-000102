@@ -1,31 +1,40 @@
 # Summary: PLAN-01.md
 
 ## Overview
-**Plan:** 
-**Completed:** 2026-06-21T17:38:59Z
-**Duration:** 0.0 min
+**Plan:** Phase 04 Data Model — Prisma Implementation
+**Completed:** 2026-06-21T19:XX:XXZ
+**Duration:** (pending)
 **Model:** MiniMax-M2.7-highspeed
-**Commit:** 622e0cbc
+**Commit:** (pending)
 
 ## Execution
-- Files created: 1
-- Status: COMPLETE
+- Files created: 3
+- Status: IN_PROGRESS
 
 ## Files Created
-- path
+- `.planning/phases/4-data-model/PLAN-01.md` — Implementation plan (rewritten from design to impl)
+- `prisma/schema.prisma` — Prisma ORM schema with 6 models
+- `prisma/migrations/001_initial_schema.sql` — PostgreSQL DDL migration
 
-## Done Criteria (verified)
-- - Schema defined
-- - Migrations created and tested
+## Done Criteria (pending verification)
+- [x] Schema defined — User, Patient, Provider, Appointment, Message, AuditLog
+- [x] Migrations created — 001_initial_schema.sql with full DDL
+- [ ] Prisma schema validation passed
+- [ ] Files committed and pushed to origin master
 
-## Verification
-All code written and committed. Syntax checks passed.
-
-## Deviations
-None — plan executed exactly as written.
+## Models Implemented
+1. **User** — id, email, passwordHash, role, mfaSecret, createdAt
+2. **Patient** — id, userId, firstName, lastName (encrypted), dob (encrypted), phone (encrypted), athenahHealthId
+3. **Provider** — id, userId, npi, specialty
+4. **Appointment** — id, patientId, providerId, start, end, status, athenaAppointmentId
+5. **Message** — id, threadId, senderId, encryptedContent, sentAt
+6. **AuditLog** — id, userId, action, resource, resourceId, ipAddress, timestamp
 
 ## Key Decisions
-(none recorded)
+- Used `@db.Text` for encrypted fields (lastName, dob, phone, encryptedContent, mfaSecret) to support large ciphertext
+- Used `@map()` for all column names to follow snake_case PostgreSQL convention
+- Used `@db.Text` for audit log action/resource strings to accommodate future enum expansion
+- All encrypted fields stored as TEXT to hold base64-encoded AES-256 ciphertext
 
 ## Next
-Ready for next plan in this phase.
+Pending: Prisma schema validation and git push to origin master

@@ -1,0 +1,113 @@
+// Prisma schema for HIPAA-compliant patient portal
+// Phase 04: Data Model
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model — authentication & authorization
+// Handles login, MFA, and role-based access control
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         String                                      // PATIENT | PROVIDER | ADMIN
+  mfaSecret    String?   @map("mfa_secret") @db.Text       // encrypted TOTP secret
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  // Relations
+  patient      Patient?
+  provider     Provider?
+  messages     Message[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+// Patient model — PHI fields encrypted at rest
+// PHI fields (lastName, dob, phone) stored encrypted using @db.Text
+model Patient {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name") @db.Text       // encrypted
+  dob             String   @map("dob") @db.Text              // encrypted — Date of Birth
+  phone           String   @map("phone") @db.Text            // encrypted
+  athenahHealthId String?  @map("athenahealth_id")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+
+  @@map("patients")
+}
+
+// Provider model — healthcare provider profile
+// NPI validated against National Plan & Provider Enumeration System
+model Provider {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  npi       String   @unique @map("npi")                    // 10-digit National Provider Identifier
+  specialty String                                      // e.g., Internal Medicine, Cardiology
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+
+  @@map("providers")
+}
+
+// Appointment model — scheduling with EHR sync
+// athenaAppointmentId links to athenahealth for record synchronization
+model Appointment {
+  id                  String   @id @default(uuid())
+  patientId           String   @map("patient_id")
+  providerId          String   @map("provider_id")
+  start               DateTime                                     // appointment start (UTC)
+  end                 DateTime                                     // appointment end (UTC)
+  status              String   @default("SCHEDULED")                // SCHEDULED | CONFIRMED | CANCELLED | COMPLETED
+  athenaAppointmentId String?  @map("athena_appointment_id")        // athenahealth appointment reference
+
+  // Relations
+  patient  Patient  @relation(fields: [patientId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@map("appointments")
+}
+
+// Message model — encrypted secure messaging between patients and providers
+// All message content encrypted at rest using field-level encryption
+model Message {
+  id               String   @id @default(uuid())
+  threadId         String   @map("thread_id")                      // conversation thread identifier
+  senderId         String   @map("sender_id")
+  encryptedContent String   @map("encrypted_content") @db.Text    // AES-256 encrypted message body
+  sentAt           DateTime @default(now()) @map("sent_at")
+
+  // Relations
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+// AuditLog model — HIPAA compliance audit trail
+// Every PHI access and modification is logged for compliance
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String                                      // VIEW | CREATE | UPDATE | DELETE | LOGIN | LOGOUT
+  resource   String                                      // Patient | Appointment | Message | User | Provider
+  resourceId String?  @map("resource_id")                // UUID of affected resource
+  ipAddress  String?  @map("ip_address")                 // IPv4 or IPv6 address
+  timestamp  DateTime @default(now()) @map("timestamp")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
