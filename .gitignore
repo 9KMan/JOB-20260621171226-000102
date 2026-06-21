@@ -6,7 +6,6 @@ SPEC.txt
 TASK.txt
 pid
 role
-.planning/
 *.pyc
 __pycache__/
 .DS_Store
