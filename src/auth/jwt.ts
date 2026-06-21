@@ -1,159 +1,74 @@
-/**
- * JWT Authentication Module — RS256 JWT signing/verification
- * Loads keys from PEM files or inline base64 env vars
- */
-
 import jwt from 'jsonwebtoken';
-import { readFileSync } from 'fs';
-import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
 import { randomUUID } from 'crypto';
-
-const prisma = new PrismaClient();
-
-// ─── Key Loading ────────────────────────────────────────────────────────────
-
-function loadPrivateKey(): string {
-  const keyPath = process.env.JWT_PRIVATE_KEY_PATH;
-  if (keyPath) {
-    return readFileSync(keyPath, 'utf-8');
-  }
-  const inlineKey = process.env.JWT_PRIVATE_KEY;
-  if (!inlineKey) {
-    throw new Error('JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH must be set');
-  }
-  return Buffer.from(inlineKey, 'base64').toString('utf-8');
-}
-
-function loadPublicKey(): string {
-  const keyPath = process.env.JWT_PUBLIC_KEY_PATH;
-  if (keyPath) {
-    return readFileSync(keyPath, 'utf-8');
-  }
-  const inlineKey = process.env.JWT_PUBLIC_KEY;
-  if (!inlineKey) {
-    throw new Error('JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH must be set');
-  }
-  return Buffer.from(inlineKey, 'base64').toString('utf-8');
-}
-
-let privateKey: string | undefined;
-let publicKey: string | undefined;
-
-function getPrivateKey(): string {
-  if (!privateKey) privateKey = loadPrivateKey();
-  return privateKey;
-}
-
-function getPublicKey(): string {
-  if (!publicKey) publicKey = loadPublicKey();
-  return publicKey;
-}
-
-// ─── Token Interfaces ────────────────────────────────────────────────────────
+import { config } from '../config/index.js';
 
 export interface AccessTokenPayload {
-  sub: string;        // userId
+  sub: string;  // user ID
   role: string;
   type: 'access';
-  iat?: number;
-  exp?: number;
+  iat: number;
+  exp: number;
 }
 
 export interface RefreshTokenPayload {
-  sub: string;        // userId
+  sub: string;
+  jti: string;   // JWT ID for revocation
   type: 'refresh';
-  jti: string;        // unique token ID for revocation
-  iat?: number;
-  exp?: number;
+  iat: number;
+  exp: number;
 }
 
-// ─── Sign Access Token (15min expiry) ───────────────────────────────────────
+function loadPemKey(keyPath: string, keyContent: string): string {
+  if (keyPath && fs.existsSync(keyPath)) {
+    return fs.readFileSync(keyPath, 'utf8');
+  }
+  // Assume base64-encoded PEM if not a path
+  if (keyContent.includes('BEGIN')) return keyContent;
+  // base64 -> PEM
+  const lines = keyContent.match(/.{1,64}/g) || [];
+  const header = keyContent.includes('PRIVATE') ? 'RSA PRIVATE KEY' : 'RSA PUBLIC KEY';
+  return `-----BEGIN ${header}-----\n${lines.join('\n')}\n-----END ${header}-----\n`;
+}
+
+const privateKey = loadPemKey('', config.jwtPrivateKey);
+const publicKey = loadPemKey('', config.jwtPublicKey);
 
 export function signAccessToken(userId: string, role: string): string {
-  const payload: Omit<AccessTokenPayload, 'iat' | 'exp'> = {
-    sub: userId,
-    role,
-    type: 'access',
-  };
-
-  return jwt.sign(payload, getPrivateKey(), {
-    algorithm: 'RS256',
-    expiresIn: '15m',
-  });
+  return jwt.sign(
+    { sub: userId, role, type: 'access' },
+    privateKey,
+    { algorithm: 'RS256', expiresIn: config.jwtAccessTtl }
+  );
 }
 
-// ─── Sign Refresh Token (7 day expiry, with jti) ────────────────────────────
-
-export function signRefreshToken(userId: string): { token: string; jti: string } {
-  const jti = randomUUID();
-
-  const payload: Omit<RefreshTokenPayload, 'iat' | 'exp'> = {
-    sub: userId,
-    type: 'refresh',
-    jti,
-  };
-
-  const token = jwt.sign(payload, getPrivateKey(), {
-    algorithm: 'RS256',
-    expiresIn: '7d',
-  });
-
-  return { token, jti };
+export function signRefreshToken(userId: string, jti?: string): string {
+  const tokenId = jti || randomUUID();
+  return jwt.sign(
+    { sub: userId, jti: tokenId, type: 'refresh' },
+    privateKey,
+    { algorithm: 'RS256', expiresIn: config.jwtRefreshTtl }
+  );
 }
-
-// ─── Verify Token ───────────────────────────────────────────────────────────
 
 export function verifyToken(token: string): AccessTokenPayload | RefreshTokenPayload {
-  try {
-    const payload = jwt.verify(token, getPublicKey(), { algorithms: ['RS256'] }) as
-      | AccessTokenPayload
-      | RefreshTokenPayload;
-    return payload;
-  } catch (err) {
-    if (err instanceof jwt.TokenExpiredError) {
-      throw new Error('Token has expired');
-    }
-    if (err instanceof jwt.JsonWebTokenError) {
-      throw new Error('Invalid token');
-    }
-    throw err;
-  }
+  return jwt.verify(token, publicKey, { algorithms: ['RS256'] }) as AccessTokenPayload | RefreshTokenPayload;
 }
 
-// ─── Revoke Token (mark jti as used) ────────────────────────────────────────
+export function decodeToken(token: string): AccessTokenPayload | RefreshTokenPayload | null {
+  return jwt.decode(token) as AccessTokenPayload | RefreshTokenPayload | null;
+}
 
-/**
- * Revokes a refresh token by marking its jti in the revoked_tokens table.
- * Called when a refresh token is used to issue a new access token.
- */
+// ─── Token Revocation (in-memory — use Redis/DB in production) ────────────────
+// NOTE: In-memory Set is lost on restart. For production, add a RevokedToken
+// model to schema.prisma and persist revocation there.
+
+const revokedTokens = new Set<string>();
+
 export async function revokeToken(jti: string): Promise<void> {
-  // Upsert revoked token with expiry (7 days + buffer)
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 8);
-
-  await prisma.revokedToken.upsert({
-    where: { jti },
-    update: {},
-    create: {
-      jti,
-      expiresAt,
-    },
-  });
+  revokedTokens.add(jti);
 }
-
-// ─── Check if token jti is revoked ─────────────────────────────────────────
 
 export async function isTokenRevoked(jti: string): Promise<boolean> {
-  const revoked = await prisma.revokedToken.findUnique({
-    where: { jti },
-  });
-  return !!revoked;
+  return revokedTokens.has(jti);
 }
-
-// ─── Prisma schema needs RevokedToken model ─────────────────────────────────
-// This module expects a RevokedToken model in schema.prisma:
-// model RevokedToken {
-//   jti       String   @id
-//   expiresAt DateTime @map("expires_at")
-//   @@map("revoked_tokens")
-// }

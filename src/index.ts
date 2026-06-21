@@ -1,15 +1,20 @@
 import { createApp } from './app.js';
-import { config } from './config/index.js';
+
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const app = createApp();
 
-process.on('uncaughtException', (err: Error) => {
+process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
 });
 
-const PORT = config.port;
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+  process.exit(1);
+});
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`MedPortal API running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

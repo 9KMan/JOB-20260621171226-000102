@@ -1,6 +1,3 @@
-// Prisma schema for HIPAA-compliant patient portal
-// Phase 04: Data Model
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,104 +7,208 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model — authentication & authorization
-// Handles login, MFA, and role-based access control
-model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  role         String                                      // PATIENT | PROVIDER | ADMIN
-  mfaSecret    String?   @map("mfa_secret") @db.Text       // encrypted TOTP secret
-  createdAt    DateTime  @default(now()) @map("created_at")
+// ─── Enums ────────────────────────────────────────────────────────────────────
 
-  // Relations
-  patient      Patient?
-  provider     Provider?
-  messages     Message[]
-  auditLogs    AuditLog[]
+enum UserRole {
+  PATIENT
+  PROVIDER
+  ADMIN
+  SYSTEM
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+// ─── User + Auth ───────────────────────────────────────────────────────────────
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  passwordHash    String   @map("password_hash")
+  role            UserRole @default(PATIENT)
+  mfaEnabled      Boolean  @default(false)        @map("mfa_enabled")
+  mfaSecret      String?  @map("mfa_secret")    // stored encrypted; null if MFA not enrolled
+  active          Boolean  @default(true)
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt       @map("updated_at")
+
+  patient         Patient?
+  provider        Provider?
+  auditLogs       AuditLog[]
+  sentMessages    Message[]      @relation("SentMessages")
+  refreshTokens   RefreshToken[]
 
   @@map("users")
 }
 
-// Patient model — PHI fields encrypted at rest
-// PHI fields (lastName, dob, phone) stored encrypted using @db.Text
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  jti       String   @unique        // JWT ID — used for revocation
+  hash      String               // SHA-256 of the actual token
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([jti])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ─── Patient ───────────────────────────────────────────────────────────────────
+
 model Patient {
-  id              String   @id @default(uuid())
-  userId          String   @unique @map("user_id")
-  firstName       String   @map("first_name")
-  lastName        String   @map("last_name") @db.Text       // encrypted
-  dob             String   @map("dob") @db.Text              // encrypted — Date of Birth
-  phone           String   @map("phone") @db.Text            // encrypted
-  athenahHealthId String?  @map("athenahealth_id")
+  id                    String  @id @default(uuid())
+  userId                String  @unique @map("user_id")
+  // PHI fields — encrypted at application layer before storage (AES-256-GCM)
+  firstNameEncrypted   String  @map("first_name_encrypted") @db.Text
+  lastNameEncrypted    String  @map("last_name_encrypted")  @db.Text
+  dobEncrypted          String  @map("dob_encrypted")         @db.Text
+  phoneEncrypted        String  @map("phone_encrypted")       @db.Text
+  // athenahealth mapping
+  athenaPatientId      String? @map("athena_patient_id")   @unique
 
-  // Relations
-  user         User          @relation(fields: [userId], references: [id])
-  appointments Appointment[]
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt       @map("updated_at")
 
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments          Appointment[]
+  threads               MessageThread[] @relation("PatientThreads")
+
+  @@index([userId])
   @@map("patients")
 }
 
-// Provider model — healthcare provider profile
-// NPI validated against National Plan & Provider Enumeration System
+// ─── Provider ──────────────────────────────────────────────────────────────────
+
 model Provider {
-  id        String   @id @default(uuid())
-  userId    String   @unique @map("user_id")
-  npi       String   @unique @map("npi")                    // 10-digit National Provider Identifier
-  specialty String                                      // e.g., Internal Medicine, Cardiology
+  id                    String  @id @default(uuid())
+  userId                String  @unique @map("user_id")
+  firstNameEncrypted    String  @map("first_name_encrypted") @db.Text
+  lastNameEncrypted     String  @map("last_name_encrypted")  @db.Text
+  npi                   String  @unique  // National Provider Identifier
+  specialty             String?
+  clinicName            String? @map("clinic_name")
+  athenaProviderId      String? @map("athena_provider_id") @unique
 
-  // Relations
-  user         User          @relation(fields: [userId], references: [id])
-  appointments Appointment[]
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt       @map("updated_at")
 
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments          Appointment[]
+
+  @@index([userId])
   @@map("providers")
 }
 
-// Appointment model — scheduling with EHR sync
-// athenaAppointmentId links to athenahealth for record synchronization
+// ─── Appointment ───────────────────────────────────────────────────────────────
+
 model Appointment {
-  id                  String   @id @default(uuid())
-  patientId           String   @map("patient_id")
-  providerId          String   @map("provider_id")
-  start               DateTime                                     // appointment start (UTC)
-  end                 DateTime                                     // appointment end (UTC)
-  status              String   @default("SCHEDULED")                // SCHEDULED | CONFIRMED | CANCELLED | COMPLETED
-  athenaAppointmentId String?  @map("athena_appointment_id")        // athenahealth appointment reference
+  id                    String            @id @default(uuid())
+  patientId             String           @map("patient_id")
+  providerId            String           @map("provider_id")
+  startTime             DateTime         @map("start_time")
+  endTime               DateTime         @map("end_time")
+  status                AppointmentStatus @default(SCHEDULED)
+  type                  String?
+  notes                 String?          @db.Text
+  athenaAppointmentId   String?          @map("athena_appointment_id") @unique
 
-  // Relations
-  patient  Patient  @relation(fields: [patientId], references: [id])
-  provider Provider @relation(fields: [providerId], references: [id])
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt       @map("updated_at")
 
+  patient               Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider              Provider         @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([startTime])
   @@map("appointments")
 }
 
-// Message model — encrypted secure messaging between patients and providers
-// All message content encrypted at rest using field-level encryption
+// ─── Secure Messaging ─────────────────────────────────────────────────────────
+
+model MessageThread {
+  id         String   @id @default(uuid())
+  patientId  String   @map("patient_id")
+  subject    String
+  status     String   @default("OPEN") // OPEN | CLOSED
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt       @map("updated_at")
+
+  patient    Patient   @relation("PatientThreads", fields: [patientId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@unique([patientId, subject])
+  @@index([patientId])
+  @@map("message_threads")
+}
+
 model Message {
-  id               String   @id @default(uuid())
-  threadId         String   @map("thread_id")                      // conversation thread identifier
-  senderId         String   @map("sender_id")
-  encryptedContent String   @map("encrypted_content") @db.Text    // AES-256 encrypted message body
-  sentAt           DateTime @default(now()) @map("sent_at")
+  id                 String        @id @default(uuid())
+  threadId           String        @map("thread_id")
+  senderId           String        @map("sender_id")
+  contentEncrypted   String        @map("content_encrypted") @db.Text // AES-256-GCM encrypted
+  status             MessageStatus @default(SENT)
+  sentAt             DateTime      @default(now()) @map("sent_at")
 
-  // Relations
-  sender User @relation(fields: [senderId], references: [id])
+  thread             MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender             User          @relation("SentMessages", fields: [senderId], references: [id])
 
+  @@index([threadId])
   @@map("messages")
 }
 
-// AuditLog model — HIPAA compliance audit trail
-// Every PHI access and modification is logged for compliance
+// ─── HIPAA Audit Log ──────────────────────────────────────────────────────────
+
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String   @map("user_id")
-  action     String                                      // VIEW | CREATE | UPDATE | DELETE | LOGIN | LOGOUT
-  resource   String                                      // Patient | Appointment | Message | User | Provider
-  resourceId String?  @map("resource_id")                // UUID of affected resource
-  ipAddress  String?  @map("ip_address")                 // IPv4 or IPv6 address
-  timestamp  DateTime @default(now()) @map("timestamp")
+  id             String    @id @default(uuid())
+  userId         String?   @map("user_id")       // null for anonymous/system events
+  action         String                     // REGISTER, LOGIN, VIEW_PATIENT, etc.
+  resourceType   String                     // Patient, Appointment, Message, etc.
+  resourceId     String?   @map("resource_id")
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent")
+  success        Boolean   @default(true)
+  details        String?   @db.Text          // JSON — encrypted if contains PHI
+  createdAt      DateTime  @default(now()) @map("created_at")
 
-  // Relations
-  user User @relation(fields: [userId], references: [id])
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
+  @@index([resourceType, resourceId])
+  @@index([createdAt])
+  @@index([action])
   @@map("audit_logs")
+}
+
+// ─── FHIR Resource Mapping ─────────────────────────────────────────────────────
+
+model FHIRMapping {
+  id                 String   @id @default(uuid())
+  internalId         String   @map("internal_id")
+  externalSystem     String   @map("external_system")     // "athenahealth"
+  externalResource   String   @map("external_resource")   // "Patient", "Appointment", etc.
+  externalId         String   @map("external_id")
+  syncedAt           DateTime @default(now()) @map("synced_at")
+
+  @@unique([externalSystem, externalResource, externalId])
+  @@index([internalId])
+  @@map("fhir_mappings")
 }

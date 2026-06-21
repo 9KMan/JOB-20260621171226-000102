@@ -1,0 +1,10 @@
+aws_region           = "us-east-1"
+environment          = "dev"
+project_name         = "medportal"
+db_instance_class    = "db.t3.medium"
+db_allocated_storage = 50
+vpc_cidr             = "10.0.0.0/16"
+athena_client_id     = "your_athena_client_id"
+athena_client_secret = "your_athena_client_secret"
+webhook_secret       = "your_webhook_secret"
+notification_email   = "noreply@medportal.com"

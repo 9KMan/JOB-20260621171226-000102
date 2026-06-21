@@ -1,34 +1,39 @@
-import express, { Express } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-
-import healthRouter from './routes/health.js';
-import authRouter from './routes/auth.js';
-import patientsRouter from './routes/patients.js';
-import appointmentsRouter from './routes/appointments.js';
-import messagesRouter from './routes/messages.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp(): Express {
   const app = express();
 
   // Security middleware
   app.use(helmet());
-  app.use(cors());
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+  }));
 
-  // Performance middleware
+  // Compression
   app.use(compression());
-  app.use(express.json());
 
   // Rate limiting
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later' },
   });
-  app.use(limiter);
+  app.use('/api/', limiter);
+
+  // Body parsing
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true }));
+
+  // Trust proxy (for correct IP behind load balancer)
+  app.set('trust proxy', 1);
 
   // Routes
   app.use('/health', healthRouter);
@@ -37,11 +42,20 @@ export function createApp(): Express {
   app.use('/appointments', appointmentsRouter);
   app.use('/messages', messagesRouter);
 
-  // Global error handler
-  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+  // 404 handler
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: 'Not found' });
   });
+
+  // Global error handler
+  app.use(errorHandler);
 
   return app;
 }
+
+// Placeholder imports — replace with real routes after Phase 5
+import { router as healthRouter } from './routes/health.js';
+import { router as authRouter } from './routes/auth.js';
+import { router as patientsRouter } from './routes/patients.js';
+import { router as appointmentsRouter } from './routes/appointments.js';
+import { router as messagesRouter } from './routes/messages.js';
