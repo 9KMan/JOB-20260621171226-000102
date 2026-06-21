@@ -40,7 +40,7 @@
   "job_id": "JOB-20260621171226-000102",
   "created_at": "2026-06-21T17:12:26.502319+00:00",
   "cto_approved": true,
-  "_version": 13,
+  "_version": 17,
   "history": [
     {
       "ts": "2026-06-21T19:12:32.034066",
@@ -48,9 +48,16 @@
       "to": "REVIEW",
       "actor": "batch-qualify",
       "note": "auto-qualify from INTAKE"
+    },
+    {
+      "ts": "2026-06-21T17:39:34.316178+00:00",
+      "from": "BUILDING",
+      "to": "IN_REVIEW",
+      "actor": "build",
+      "note": "Build complete"
     }
   ],
-  "updated_at": "2026-06-21T19:12:32.034066",
+  "updated_at": "2026-06-21T17:39:34.316178+00:00",
   "assigned_at": null,
   "assignee": null,
   "retry_count": 0,
@@ -66,5 +73,7 @@
     "stored_at": "2026-06-21T17:37:00.911023+00:00"
   },
   "ceo_review_issue_id": "762e680f-13c3-4ea9-b5cf-8ac04e7db178",
-  "ceo_review_issue_number": 757
+  "ceo_review_issue_number": 757,
+  "proposal_path": "/home/deploy/squad/build-worker/JOB-20260621171226-000102/PROPOSAL.md",
+  "cover_letter_path": "/home/deploy/squad/build-worker/JOB-20260621171226-000102/COVER_LETTER.txt"
 }
