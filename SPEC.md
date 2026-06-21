@@ -253,3 +253,45 @@ ehr_sync_state      — id, resource_type, last_sync_at, athena_modified_since
 8. Audit log is append-only; no UPDATE or DELETE operations permitted on audit_log table
 9. All PHI encrypted at rest (database level for columns, S3 SSE-KMS for files)
 10. Infrastructure reproducible from Terraform (no manual AWS console changes)
+
+---
+
+## 10. Files to Create
+
+Total: ~25 source files across 7 phases.
+
+| Phase | File | Description |
+|---|---|---|
+| **2** | `package.json` | Node.js 20 + TypeScript + Express + Prisma + AWS SDK + otplib |
+| **2** | `tsconfig.json` | TypeScript config targeting Node 20 |
+| **2** | `.env.example` | All required env vars (DB URL, JWT keys, AWS creds, athenahealth) |
+| **2** | `Dockerfile` | Multi-stage Node 20 Alpine production build |
+| **2** | `docker-compose.yml` | PostgreSQL + app + MinIO (local S3) |
+| **2** | `.gitignore` | Node modules, .env, dist/, .terraform/ |
+| **3** | `src/index.ts` | Entry point, port binding |
+| **3** | `src/app.ts` | Express app with middleware chain |
+| **3** | `src/config/index.ts` | Env config loader with validation |
+| **3** | `src/config/database.ts` | Prisma client singleton |
+| **3** | `src/routes/health.ts` | Health check + readiness endpoints |
+| **4** | `prisma/schema.prisma` | All models: User, Patient, Provider, Appointment, Message, AuditLog, FHIRMapping |
+| **4** | `prisma/migrations/001_initial_schema.sql` | Initial migration |
+| **5** | `src/auth/jwt.ts` | RS256 JWT with key loading, access + refresh tokens |
+| **5** | `src/auth/mfa.ts` | TOTP MFA with otplib + QR code generation |
+| **5** | `src/auth/rbac.ts` | Role-based middleware (PATIENT, PROVIDER, ADMIN, SYSTEM) |
+| **5** | `src/routes/auth.ts` | /auth/register, /auth/login, /auth/mfa-verify, /auth/refresh |
+| **5** | `src/routes/patients.ts` | Patient CRUD with row-level security |
+| **5** | `src/routes/appointments.ts` | Appointment booking, reschedule, cancel |
+| **5** | `src/routes/messages.ts` | Secure thread-based messaging |
+| **5** | `src/middleware/audit.ts` | HIPAA audit logger (every PHI access) |
+| **5** | `src/middleware/errorHandler.ts` | Centralized error handler |
+| **6** | `src/audit/logger.ts` | Structured audit log (DB + S3 Glacier sink) |
+| **6** | `src/encryption/phi.ts` | AES-256-GCM column-level encryption helpers |
+| **6** | `terraform/main.tf` | AWS: VPC, RDS, S3, Lambda, IAM roles |
+| **6** | `terraform/variables.tf` | Terraform variables |
+| **6** | `terraform/outputs.tf` | Terraform outputs |
+| **7** | `src/integration/athenahealth/fhir.ts` | FHIR R4 client (Patient, Appointment, Condition, MedicationRequest, Observation) |
+| **7** | `src/integration/athenahealth/webhook.ts` | Webhook receiver with idempotency |
+| **7** | `src/integration/s3.ts` | S3 presigned URLs + virus scan trigger |
+| **7** | `src/workers/notification.ts` | AWS SES/SNS for email + SMS reminders |
+| **7** | `.env.terraform.example` | Terraform env vars template |
+| **7** | `terraform/terraform.tfvars.example` | Terraform tfvars template |
