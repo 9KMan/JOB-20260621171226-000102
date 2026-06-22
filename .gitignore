@@ -12,3 +12,7 @@ __pycache__/
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Proposal files (private — not for public repo)
+PROPOSAL.md
+COVER_LETTER.txt
